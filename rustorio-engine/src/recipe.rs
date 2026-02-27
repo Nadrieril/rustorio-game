@@ -5,6 +5,7 @@ pub use rustorio_derive::{Recipe, recipe_doc};
 use crate::{
     ResourceType, Sealed,
     resources::{Bundle, Resource, TokenOfCreation, creation_token},
+    subfactories::{Past, PastTick},
     tick::Tick,
 };
 
@@ -12,6 +13,11 @@ use crate::{
 pub trait MultiBundle: Sized + std::fmt::Debug {
     /// The corresponding tuple of `Resource<R>`.
     type AsResources: Default + std::fmt::Debug;
+
+    /// The corresponding tuple of `Past<'tick, Bundle<R, N>>`.
+    type AsPastBundle<'tick>: std::fmt::Debug;
+    /// The corresponding tuple of `Past<'tick, Resource<R>>`.
+    type AsPastResources<'tick>: std::fmt::Debug;
 
     /// A tuple of `u32`, one for each resource; used for `AMOUNTS`.
     type AmountsType: std::fmt::Debug;
@@ -35,6 +41,15 @@ pub trait MultiBundle: Sized + std::fmt::Debug {
     /// For use in mods only, cannot be used from the game.
     fn new_bundle(token: &TokenOfCreation) -> Self;
 
+    /// Access the tuple of resources at a past point in time.
+    ///
+    /// For use in mods only, cannot be used from the game.
+    fn as_past_resources<'a, 'tick>(
+        tick: &'a PastTick<'tick>,
+        token: &'a TokenOfCreation,
+        res: &'a mut Self::AsResources,
+    ) -> &'a mut Self::AsPastResources<'tick>;
+
     /// Iterate over the resources, returning for each the resource name, per-bundle expected
     /// amount, and current amount.
     fn iter(items: &Self::AsResources) -> impl Iterator<Item = (&'static str, u32, u32)>;
@@ -52,6 +67,9 @@ pub trait MultiBundle: Sized + std::fmt::Debug {
 impl<R1: ResourceType, const N1: u32> MultiBundle for Bundle<R1, N1> {
     type AsResources = Resource<R1>;
 
+    type AsPastBundle<'tick> = Past<'tick, Self>;
+    type AsPastResources<'tick> = Past<'tick, Resource<R1>>;
+
     type AmountsType = (u32,);
     const AMOUNTS: Self::AmountsType = (N1,);
 
@@ -67,6 +85,14 @@ impl<R1: ResourceType, const N1: u32> MultiBundle for Bundle<R1, N1> {
     }
     fn new_bundle(token: &TokenOfCreation) -> Self {
         crate::resources::bundle(token)
+    }
+    fn as_past_resources<'a, 'tick>(
+        _tick: &'a PastTick<'tick>,
+        _token: &'a TokenOfCreation,
+        res: &'a mut Self::AsResources,
+    ) -> &'a mut Self::AsPastResources<'tick> {
+        // Safety: `Past` is `repr(transparent)`; the types are otherwise the same.
+        unsafe { std::mem::transmute(res) }
     }
     fn iter(items: &Self::AsResources) -> impl Iterator<Item = (&'static str, u32, u32)> {
         [(<R1 as ResourceType>::NAME, N1, items.amount())].into_iter()
@@ -105,6 +131,15 @@ macro_rules! impl_multi_bundle {
                     $(Resource<$ty>,)*
                 );
 
+            type AsPastBundle<'tick> =
+                (
+                    $(Past<'tick, Bundle<$ty, $amount>>,)*
+                );
+            type AsPastResources<'tick> =
+                (
+                    $(Past<'tick, Resource<$ty>>,)*
+                );
+
             type AmountsType =
                 (
                     $(replace_expr!($amount, u32),)*
@@ -138,6 +173,16 @@ macro_rules! impl_multi_bundle {
                     )*
                 )
             }
+
+            fn as_past_resources<'a, 'tick>(
+                _tick: &'a PastTick<'tick>,
+                _token: &'a TokenOfCreation,
+                res: &'a mut Self::AsResources,
+            ) -> &'a mut Self::AsPastResources<'tick> {
+                // Safety: `Past` is `repr(transparent)`; the types are otherwise the same.
+                unsafe { std::mem::transmute(res) }
+            }
+
             fn iter(
                 items: &Self::AsResources,
             ) -> impl Iterator<Item = (&'static str, u32, u32)> {

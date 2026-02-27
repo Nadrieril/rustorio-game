@@ -11,7 +11,8 @@
 use crate::{
     recipe::{MultiBundle, Recipe},
     resources::{TokenOfCreation, creation_token},
-    tick::{Tick, TickSnapshot},
+    subfactories::PastTick,
+    tick::{BackwardTickingError, Tick, TickSnapshot},
 };
 
 /// Location of a resource buffer in a machine.
@@ -98,6 +99,36 @@ impl<R: Recipe> Machine<R> {
         &mut self.outputs
     }
 
+    /// Update internal state and access input buffers.
+    pub fn past_inputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> Result<&'a mut <R::InputBundle as MultiBundle>::AsPastResources<'tick>, BackwardTickingError>
+    {
+        self.tick_to(tick.as_snapshot())?;
+        Ok(<R::InputBundle as MultiBundle>::as_past_resources(
+            tick,
+            creation_token(),
+            &mut self.inputs,
+        ))
+    }
+
+    /// Update internal state and access output buffers.
+    pub fn past_outputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> Result<
+        &'a mut <R::OutputBundle as MultiBundle>::AsPastResources<'tick>,
+        BackwardTickingError,
+    > {
+        self.tick_to(tick.as_snapshot())?;
+        Ok(<R::OutputBundle as MultiBundle>::as_past_resources(
+            tick,
+            creation_token(),
+            &mut self.outputs,
+        ))
+    }
+
     fn iter_inputs<'a>(
         &'a mut self,
         token: &'a TokenOfCreation,
@@ -145,8 +176,12 @@ impl<R: Recipe> Machine<R> {
     }
 
     fn tick(&mut self, tick: &Tick) {
-        let time_elapsed = self.tick.advance_to(tick).unwrap();
+        self.tick_to(tick.snapshot()).unwrap();
+    }
+
+    fn tick_to(&mut self, until: TickSnapshot) -> Result<(), BackwardTickingError> {
         let token = creation_token();
+        let time_elapsed = self.tick.advance_to(until)?;
 
         self.crafting_time += time_elapsed;
         let crafting_time = self.crafting_time;
@@ -171,5 +206,7 @@ impl<R: Recipe> Machine<R> {
         {
             self.crafting_time = 0;
         }
+
+        Ok(())
     }
 }

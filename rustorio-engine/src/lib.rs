@@ -13,6 +13,7 @@ pub mod machine;
 pub mod recipe;
 pub mod research;
 pub mod resources;
+pub mod subfactories;
 pub mod tick;
 
 use std::{io::Write, net::TcpStream, sync::Once};

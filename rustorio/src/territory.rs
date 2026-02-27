@@ -7,8 +7,10 @@ use std::fmt::Display;
 use rustorio_engine::{
     ResourceType, bundle,
     mod_reexports::{Bundle, Resource, Tick},
+    recipe::MultiBundle,
     resource,
     resources::{TokenOfCreation, creation_token},
+    subfactories::{Past, PastTick},
     tick::TickSnapshot,
 };
 
@@ -92,7 +94,7 @@ impl<Ore: OreType> Territory<Ore> {
         self.miners.len() as u32
     }
 
-    fn tick(&mut self, tick: &Tick) {
+    fn tick(&mut self, tick: impl Into<TickSnapshot>) {
         let token = creation_token();
         let time_elapsed = self.tick.advance_to(tick).unwrap();
         for miner_tick in &mut self.miners {
@@ -109,7 +111,7 @@ impl<Ore: OreType> Territory<Ore> {
     /// Mines ore by hand, advancing the tick by [`OreType::MINING_TIME`] for each unit mined.
     pub fn hand_mine<const AMOUNT: u32>(&mut self, tick: &mut Tick) -> Bundle<Ore, AMOUNT> {
         let token = creation_token();
-        self.tick(tick);
+        self.tick(&*tick);
         tick.advance_by((u64::from(AMOUNT)) * Ore::MINING_TIME);
         bundle(token)
     }
@@ -154,5 +156,14 @@ impl<Ore: OreType> Territory<Ore> {
     pub fn resources(&mut self, tick: &Tick) -> &mut Resource<Ore> {
         self.tick(tick);
         &mut self.resources
+    }
+
+    /// Access the resources mined in this territory.
+    pub fn past_resources<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> &'a mut Past<'tick, Resource<Ore>> {
+        self.tick(tick);
+        Bundle::<Ore, 1>::as_past_resources(tick, creation_token(), &mut self.resources)
     }
 }

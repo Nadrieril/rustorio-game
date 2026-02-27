@@ -5,7 +5,7 @@ use std::fmt::Display;
 #[derive(Debug, Clone, Copy)]
 pub struct TickSnapshot {
     /// The tick number.
-    tick: u64,
+    pub(crate) tick: u64,
 }
 
 /// Error returned when trying to move a tick snapshot backwards in time.
@@ -178,6 +178,11 @@ impl From<&Tick> for u64 {
 
 impl From<&Tick> for TickSnapshot {
     fn from(tick: &Tick) -> Self {
+        tick.snapshot()
+    }
+}
+impl From<&mut Tick> for TickSnapshot {
+    fn from(tick: &mut Tick) -> Self {
         tick.snapshot()
     }
 }

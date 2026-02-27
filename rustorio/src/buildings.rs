@@ -12,6 +12,7 @@ use rustorio_engine::{
     recipe::{MultiBundle, Recipe},
     research::{TechRecipe, Technology, tech_recipe},
     resources::creation_token,
+    subfactories::PastTick,
 };
 
 use crate::{
@@ -76,6 +77,22 @@ impl<R: AssemblerRecipe> Assembler<R> {
     pub const fn output_amounts(&self) -> <R::OutputBundle as MultiBundle>::AmountsType {
         <R::OutputBundle as MultiBundle>::AMOUNTS
     }
+
+    /// Update internal state and access input buffers.
+    pub fn past_inputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> &'a mut <R::InputBundle as MultiBundle>::AsPastResources<'tick> {
+        self.0.past_inputs(tick).unwrap()
+    }
+
+    /// Update internal state and access input buffers.
+    pub fn past_outputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> &'a mut <R::OutputBundle as MultiBundle>::AsPastResources<'tick> {
+        self.0.past_outputs(tick).unwrap()
+    }
 }
 
 /// The furnace is used to smelt ores into base resources.
@@ -129,6 +146,22 @@ impl<R: FurnaceRecipe> Furnace<R> {
     pub const fn output_amounts(&self) -> <R::OutputBundle as MultiBundle>::AmountsType {
         <R::OutputBundle as MultiBundle>::AMOUNTS
     }
+
+    /// Update internal state and access input buffers.
+    pub fn past_inputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> &'a mut <R::InputBundle as MultiBundle>::AsPastResources<'tick> {
+        self.0.past_inputs(tick).unwrap()
+    }
+
+    /// Update internal state and access input buffers.
+    pub fn past_outputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> &'a mut <R::OutputBundle as MultiBundle>::AsPastResources<'tick> {
+        self.0.past_outputs(tick).unwrap()
+    }
 }
 
 /// Performs research to unlock new technologies.
@@ -178,6 +211,15 @@ where
         self.0.inputs(tick)
     }
 
+    /// Update internal state and access input buffers.
+    pub fn past_inputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> &'a mut <<TechRecipe<T> as Recipe>::InputBundle as MultiBundle>::AsPastResources<'tick>
+    {
+        self.0.past_inputs(tick).unwrap()
+    }
+
     /// Amount of each input resource needed for one recipe cycle
     pub const fn input_amounts(
         &self,
@@ -191,5 +233,14 @@ where
         tick: &'a Tick,
     ) -> &'a mut <TechRecipe<T> as Recipe>::OutputResources {
         self.0.outputs(tick)
+    }
+
+    /// Update internal state and access input buffers.
+    pub fn past_outputs<'a, 'tick>(
+        &'a mut self,
+        tick: &'a PastTick<'tick>,
+    ) -> &'a mut <<TechRecipe<T> as Recipe>::OutputBundle as MultiBundle>::AsPastResources<'tick>
+    {
+        self.0.past_outputs(tick).unwrap()
     }
 }
